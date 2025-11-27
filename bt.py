@@ -24,7 +24,7 @@ USER_DB_FILE = os.path.join(BASE_DIR, "users.json")
 ADMIN_DB_FILE = os.path.join(BASE_DIR, "admins.json")     
 SESSION_DB_FILE = os.path.join(BASE_DIR, "sessions.json")
 
-DEFAULT_PASS = "HocSinh@2025" 
+DEFAULT_PASS = "hocSinh2025" 
 
 if not os.path.exists(CLASSES_DIR): os.makedirs(CLASSES_DIR)
 
@@ -44,9 +44,9 @@ def hash_password(password):
 
 if not os.path.exists(ADMIN_DB_FILE):
     default_admins = {
-        "admin": { 
-            "password": hash_password("admin123"), 
-            "fullname": "Thầy Giáo Chủ Nhiệm",
+        "TTD2006": { 
+            "password": hash_password("TTD2006@"), 
+            "fullname": "TRẦN TIẾN DŨNG",
             "role": "teacher"
         }
     }
@@ -556,4 +556,5 @@ def main():
         login_screen()
 
 if __name__ == "__main__":
+
     main()
