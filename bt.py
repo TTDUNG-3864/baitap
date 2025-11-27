@@ -237,7 +237,7 @@ def login_screen():
 
         with tab_register:
             with st.form("reg_form"):
-                new_name = st.text_input("Họ và tên học sinh")
+                new_name = st.text_input("Nhập họ và tên")
                 new_u = st.text_input("Tên tài khoản mới")
                 new_p = st.text_input("Mật khẩu mới", type="password")
                 if st.form_submit_button("TẠO TÀI KHOẢN", use_container_width=True):
@@ -558,4 +558,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
