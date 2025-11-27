@@ -38,47 +38,75 @@ class DriveManager:
         self.init_drive()
 
     def init_drive(self):
-        # 1. Lấy khóa từ Render (Secrets)
-        if "gcp_service_account" in st.secrets:
-            key_dict = json.loads(st.secrets["gcp_service_account"])
-            self.creds = service_account.Credentials.from_service_account_info(
-                key_dict, scopes=['https://www.googleapis.com/auth/drive']
-            )
-        # 2. Hoặc lấy từ file local
-        elif os.path.exists("service_account.json"):
-            self.creds = service_account.Credentials.from_service_account_file(
-                "service_account.json", scopes=['https://www.googleapis.com/auth/drive']
-            )
+        # --- PHẦN SỬA LỖI QUAN TRỌNG ---
+        # 1. Ưu tiên tìm file service_account.json ngay trong thư mục (Dễ nhất cho Render & Local)
+        if os.path.exists("service_account.json"):
+            try:
+                self.creds = service_account.Credentials.from_service_account_file(
+                    "service_account.json", scopes=['https://www.googleapis.com/auth/drive']
+                )
+            except Exception as e:
+                st.error(f"Lỗi đọc file json: {e}")
+                st.stop()
+        
+        # 2. Nếu không có file, mới thử tìm trong Secrets (Dự phòng)
+        elif getattr(st, "secrets", None) and "gcp_service_account" in st.secrets:
+            try:
+                key_dict = json.loads(st.secrets["gcp_service_account"])
+                self.creds = service_account.Credentials.from_service_account_info(
+                    key_dict, scopes=['https://www.googleapis.com/auth/drive']
+                )
+            except Exception as e:
+                st.error(f"Lỗi đọc Secrets: {e}")
+                st.stop()
+        
+        # 3. Không tìm thấy gì cả -> Báo lỗi hướng dẫn
         else:
-            st.error("⚠️ Lỗi: Chưa có file 'service_account.json'. Hãy thêm vào Secrets trên Render!")
+            st.warning("⚠️ CHƯA CÓ KẾT NỐI GOOGLE DRIVE!")
+            st.info("""
+            **Cách khắc phục:**
+            1. Tải file `service_account.json` (chìa khóa) về máy.
+            2. Nếu chạy trên Render: Vào mục **Environment** -> **Secret Files** -> Upload file này lên với tên `service_account.json`.
+            3. Nếu chạy trên máy: Để file này nằm cùng thư mục với `bt.py`.
+            """)
             st.stop()
 
-        self.service = build('drive', 'v3', credentials=self.creds)
-        self.check_setup()
+        # Kết nối sau khi có creds
+        try:
+            self.service = build('drive', 'v3', credentials=self.creds)
+            self.check_setup()
+        except Exception as e:
+            st.error(f"Không thể kết nối Google Drive API: {e}")
+            st.stop()
 
     def check_setup(self):
-        # Tìm thư mục gốc trên Drive
-        query = f"name = '{ROOT_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-        results = self.service.files().list(q=query, fields="files(id)").execute()
-        files = results.get('files', [])
-        
-        if not files:
-            st.error(f"❌ Không tìm thấy thư mục '{ROOT_FOLDER_NAME}' trên Drive. Hãy tạo và chia sẻ quyền Editor cho Service Account!")
+        try:
+            # Tìm thư mục gốc
+            query = f"name = '{ROOT_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            results = self.service.files().list(q=query, fields="files(id)").execute()
+            files = results.get('files', [])
+            
+            if not files:
+                st.error(f"❌ Không tìm thấy thư mục '{ROOT_FOLDER_NAME}' trên Drive.")
+                st.info("👉 Hãy tạo thư mục này trên Google Drive của bạn và chia sẻ quyền Editor cho email của Robot!")
+                st.stop()
+            else:
+                self.root_id = files[0]['id']
+
+            # Tìm database.json
+            query = f"name = 'database.json' and '{self.root_id}' in parents and trashed = false"
+            results = self.service.files().list(q=query, fields="files(id)").execute()
+            files = results.get('files', [])
+
+            if files:
+                self.db_file_id = files[0]['id']
+                self.load_db()
+            else:
+                self.init_default_admin()
+                self.save_db(create_new=True)
+        except Exception as e:
+            st.error(f"Lỗi setup Drive: {e}")
             st.stop()
-        else:
-            self.root_id = files[0]['id']
-
-        # Tìm database.json
-        query = f"name = 'database.json' and '{self.root_id}' in parents and trashed = false"
-        results = self.service.files().list(q=query, fields="files(id)").execute()
-        files = results.get('files', [])
-
-        if files:
-            self.db_file_id = files[0]['id']
-            self.load_db()
-        else:
-            self.init_default_admin()
-            self.save_db(create_new=True)
 
     def init_default_admin(self):
         # Admin mặc định của bạn
