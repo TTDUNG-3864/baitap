@@ -237,9 +237,9 @@ def login_screen():
 
         with tab_register:
             with st.form("reg_form"):
+                new_name = st.text_input("Họ và tên học sinh")
                 new_u = st.text_input("Tên tài khoản mới")
                 new_p = st.text_input("Mật khẩu mới", type="password")
-                new_name = st.text_input("Họ và tên học sinh")
                 if st.form_submit_button("TẠO TÀI KHOẢN", use_container_width=True):
                     stds, ads = load_json(USER_DB_FILE), load_json(ADMIN_DB_FILE)
                     if new_u in stds or new_u in ads: st.error("Tên tài khoản đã tồn tại!")
@@ -558,3 +558,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
